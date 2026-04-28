@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>쇼핑 리스트</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #f5f0e8;
+      --surface: #fdfaf4;
+      --ink:     #1a1612;
+      --muted:   #8a7f72;
+      --accent:  #c84b2f;
+      --done:    #b5ad9e;
+      --border:  #ddd5c4;
+      --shadow:  0 2px 16px rgba(26,22,18,.08);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 48px 16px 80px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      width: 100%;
+      max-width: 480px;
+      padding: 40px 36px 36px;
+      height: fit-content;
+    }
+
+    .header { margin-bottom: 32px; }
+
+    .header h1 {
+      font-family: 'Instrument Serif', serif;
+      font-size: 2.6rem;
+      line-height: 1.1;
+      letter-spacing: -.5px;
+    }
+
+    .header h1 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .meta {
+      margin-top: 8px;
+      font-size: .82rem;
+      color: var(--muted);
+      letter-spacing: .3px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+
+    .input-row input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .95rem;
+      background: var(--bg);
+      color: var(--ink);
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .input-row input::placeholder { color: var(--done); }
+    .input-row input:focus { border-color: var(--accent); }
+
+    .btn-add {
+      padding: 12px 20px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      line-height: 1;
+    }
+
+    .btn-add:hover  { opacity: .88; }
+    .btn-add:active { transform: scale(.95); }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      font-size: .72rem;
+      font-weight: 500;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    #list { list-style: none; }
+
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 4px;
+      border-bottom: 1px solid var(--border);
+      animation: slide-in .22s ease;
+    }
+
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .item:last-child { border-bottom: none; }
+
+    .item input[type="checkbox"] { display: none; }
+
+    .check-box {
+      width: 22px;
+      height: 22px;
+      border: 1.8px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .15s, border-color .15s;
+    }
+
+    .item.done .check-box {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .check-box::after {
+      content: '';
+      width: 5px;
+      height: 9px;
+      border: 2px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) scaleY(0);
+      transform-origin: bottom;
+      transition: transform .15s;
+    }
+
+    .item.done .check-box::after { transform: rotate(45deg) scaleY(1); }
+
+    .item-label {
+      flex: 1;
+      font-size: .97rem;
+      cursor: pointer;
+      transition: color .2s;
+      word-break: break-word;
+    }
+
+    .item.done .item-label {
+      color: var(--done);
+      text-decoration: line-through;
+      text-decoration-color: var(--done);
+    }
+
+    .btn-del {
+      background: none;
+      border: none;
+      padding: 4px 6px;
+      cursor: pointer;
+      color: var(--border);
+      font-size: 1rem;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+      line-height: 1;
+    }
+
+    .btn-del:hover { color: var(--accent); background: #fceae6; }
+
+    .empty {
+      text-align: center;
+      padding: 32px 0 8px;
+      color: var(--done);
+    }
+
+    .empty .icon { font-size: 2rem; margin-bottom: 8px; }
+    .empty p { font-size: .88rem; }
+
+    .footer {
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: .8rem;
+      color: var(--muted);
+      min-height: 24px;
+    }
+
+    .btn-clear {
+      background: none;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .8rem;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 0;
+      transition: color .15s;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .btn-clear:hover { color: var(--accent); }
+    .btn-clear:disabled { opacity: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>쇼핑<br><em>리스트</em></h1>
+    <p class="meta" id="meta">항목이 없습니다</p>
+  </div>
+
+  <div class="input-row">
+    <input id="input" type="text" placeholder="항목을 입력하세요" maxlength="60" autocomplete="off">
+    <button class="btn-add" id="btnAdd" title="추가">+</button>
+  </div>
+
+  <div class="divider" id="divider" style="display:none">목록</div>
+
+  <ul id="list"></ul>
+
+  <div class="footer">
+    <span id="footerCount"></span>
+    <button class="btn-clear" id="btnClear" disabled>완료 항목 삭제</button>
+  </div>
+</div>
+
+<script>
+  const input    = document.getElementById('input');
+  const btnAdd   = document.getElementById('btnAdd');
+  const list     = document.getElementById('list');
+  const meta     = document.getElementById('meta');
+  const divider  = document.getElementById('divider');
+  const footer   = document.getElementById('footerCount');
+  const btnClear = document.getElementById('btnClear');
+
+  let items = JSON.parse(localStorage.getItem('shopping') || '[]');
+
+  function save() {
+    localStorage.setItem('shopping', JSON.stringify(items));
+  }
+
+  function render() {
+    list.innerHTML = '';
+
+    if (items.length === 0) {
+      list.innerHTML = `
+        <li class="empty">
+          <div class="icon">🛒</div>
+          <p>아직 항목이 없어요.<br>위에서 추가해보세요!</p>
+        </li>`;
+      divider.style.display = 'none';
+    } else {
+      divider.style.display = 'flex';
+      items.forEach((item, i) => {
+        const li = document.createElement('li');
+        li.className = 'item' + (item.done ? ' done' : '');
+
+        li.innerHTML = `
+          <input type="checkbox" id="chk${i}" ${item.done ? 'checked' : ''}>
+          <label class="check-box" for="chk${i}"></label>
+          <label class="item-label" for="chk${i}">${escHtml(item.text)}</label>
+          <button class="btn-del" data-i="${i}" title="삭제">✕</button>`;
+
+        li.querySelector('input').addEventListener('change', () => toggle(i));
+        li.querySelector('.btn-del').addEventListener('click', () => remove(i));
+
+        list.appendChild(li);
+      });
+    }
+
+    const total = items.length;
+    const done  = items.filter(x => x.done).length;
+
+    meta.textContent = total === 0
+      ? '항목이 없습니다'
+      : `총 ${total}개 · 완료 ${done}개`;
+
+    footer.textContent = total > 0 ? `${total - done}개 남음` : '';
+    btnClear.disabled  = done === 0;
+  }
+
+  function add() {
+    const text = input.value.trim();
+    if (!text) { input.focus(); return; }
+    items.unshift({ text, done: false });
+    input.value = '';
+    save(); render();
+    input.focus();
+  }
+
+  function toggle(i) {
+    items[i].done = !items[i].done;
+    save(); render();
+  }
+
+  function remove(i) {
+    items.splice(i, 1);
+    save(); render();
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  btnAdd.addEventListener('click', add);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+  btnClear.addEventListener('click', () => {
+    items = items.filter(x => !x.done);
+    save(); render();
+  });
+
+  render();
+</script>
+</body>
+</html>
