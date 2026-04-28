@@ -6,6 +6,7 @@
   <title>쇼핑 리스트</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -100,6 +101,7 @@
 
     .btn-add:hover  { opacity: .88; }
     .btn-add:active { transform: scale(.95); }
+    .btn-add:disabled { opacity: .4; cursor: not-allowed; }
 
     .divider {
       display: flex;
@@ -210,6 +212,30 @@
     .empty .icon { font-size: 2rem; margin-bottom: 8px; }
     .empty p { font-size: .88rem; }
 
+    .loading {
+      text-align: center;
+      padding: 32px 0 8px;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1612;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: .85rem;
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; }
+
     .footer {
       margin-top: 24px;
       display: flex;
@@ -241,7 +267,7 @@
 <div class="card">
   <div class="header">
     <h1>쇼핑<br><em>리스트</em></h1>
-    <p class="meta" id="meta">항목이 없습니다</p>
+    <p class="meta" id="meta">불러오는 중...</p>
   </div>
 
   <div class="input-row">
@@ -258,8 +284,15 @@
     <button class="btn-clear" id="btnClear" disabled>완료 항목 삭제</button>
   </div>
 </div>
+<div class="toast" id="toast"></div>
 
 <script>
+  const SUPABASE_URL = 'https://yomobvtuxfinguceggrv.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbW9idnR1eGZpbmd1Y2VnZ3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMDM1MzMsImV4cCI6MjA5Mjg3OTUzM30.R_IAoTLwCuBpCOGeLQ3oUiorq4AmJ1SZ1cshq8trwEY';
+
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
   const input    = document.getElementById('input');
   const btnAdd   = document.getElementById('btnAdd');
   const list     = document.getElementById('list');
@@ -267,11 +300,16 @@
   const divider  = document.getElementById('divider');
   const footer   = document.getElementById('footerCount');
   const btnClear = document.getElementById('btnClear');
+  const toast    = document.getElementById('toast');
 
-  let items = JSON.parse(localStorage.getItem('shopping') || '[]');
+  let items = [];
+  let toastTimer = null;
 
-  function save() {
-    localStorage.setItem('shopping', JSON.stringify(items));
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
   }
 
   function render() {
@@ -286,18 +324,18 @@
       divider.style.display = 'none';
     } else {
       divider.style.display = 'flex';
-      items.forEach((item, i) => {
+      items.forEach(item => {
         const li = document.createElement('li');
         li.className = 'item' + (item.done ? ' done' : '');
 
         li.innerHTML = `
-          <input type="checkbox" id="chk${i}" ${item.done ? 'checked' : ''}>
-          <label class="check-box" for="chk${i}"></label>
-          <label class="item-label" for="chk${i}">${escHtml(item.text)}</label>
-          <button class="btn-del" data-i="${i}" title="삭제">✕</button>`;
+          <input type="checkbox" id="chk${item.id}" ${item.done ? 'checked' : ''}>
+          <label class="check-box" for="chk${item.id}"></label>
+          <label class="item-label" for="chk${item.id}">${escHtml(item.text)}</label>
+          <button class="btn-del" title="삭제">✕</button>`;
 
-        li.querySelector('input').addEventListener('change', () => toggle(i));
-        li.querySelector('.btn-del').addEventListener('click', () => remove(i));
+        li.querySelector('input').addEventListener('change', () => toggle(item.id, item.done));
+        li.querySelector('.btn-del').addEventListener('click', () => remove(item.id));
 
         list.appendChild(li);
       });
@@ -314,23 +352,73 @@
     btnClear.disabled  = done === 0;
   }
 
-  function add() {
+  async function loadItems() {
+    list.innerHTML = '<li class="loading">불러오는 중...</li>';
+    const { data, error } = await db
+      .from('shopping_items')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error(error);
+      showToast('불러오기 실패: ' + error.message);
+      list.innerHTML = '<li class="empty"><p>데이터를 불러올 수 없습니다.</p></li>';
+      return;
+    }
+    items = data;
+    render();
+  }
+
+  async function add() {
     const text = input.value.trim();
     if (!text) { input.focus(); return; }
-    items.unshift({ text, done: false });
-    input.value = '';
-    save(); render();
-    input.focus();
+    btnAdd.disabled = true;
+    try {
+      const { data, error } = await db
+        .from('shopping_items')
+        .insert({ text, done: false })
+        .select()
+        .single();
+      if (error) throw error;
+      items.unshift(data);
+      input.value = '';
+      render();
+      input.focus();
+    } catch (err) {
+      console.error(err);
+      showToast('저장 실패: ' + err.message);
+    } finally {
+      btnAdd.disabled = false;
+    }
   }
 
-  function toggle(i) {
-    items[i].done = !items[i].done;
-    save(); render();
+  async function toggle(id, currentDone) {
+    const { error } = await db
+      .from('shopping_items')
+      .update({ done: !currentDone })
+      .eq('id', id);
+    if (error) {
+      console.error(error);
+      showToast('업데이트 실패: ' + error.message);
+      render();
+      return;
+    }
+    const item = items.find(x => x.id === id);
+    if (item) item.done = !currentDone;
+    render();
   }
 
-  function remove(i) {
-    items.splice(i, 1);
-    save(); render();
+  async function remove(id) {
+    const { error } = await db
+      .from('shopping_items')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      console.error(error);
+      showToast('삭제 실패: ' + error.message);
+      return;
+    }
+    items = items.filter(x => x.id !== id);
+    render();
   }
 
   function escHtml(s) {
@@ -339,12 +427,22 @@
 
   btnAdd.addEventListener('click', add);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
-  btnClear.addEventListener('click', () => {
+  btnClear.addEventListener('click', async () => {
+    const doneIds = items.filter(x => x.done).map(x => x.id);
+    const { error } = await db
+      .from('shopping_items')
+      .delete()
+      .in('id', doneIds);
+    if (error) {
+      console.error(error);
+      showToast('삭제 실패: ' + error.message);
+      return;
+    }
     items = items.filter(x => !x.done);
-    save(); render();
+    render();
   });
 
-  render();
+  loadItems();
 </script>
 </body>
 </html>
